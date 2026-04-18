@@ -1,0 +1,15 @@
+damage:
+  base: 1.0
+  increment: 0.5
+  interval-ticks: 60
+
+light-threshold: 8
+
+effects:
+  delay-ticks: 200
+  sun-seeker:
+    - WEAKNESS:1
+    - SLOWNESS:1
+  night-stalker:
+    - GLOWING:1
+    - WEAKNESS:1

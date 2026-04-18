@@ -1,0 +1,17 @@
+name: DayNightFactions
+version: 1.0.0
+author: Swartzz
+main: com.daynight.DayNightPlugin
+api-version: 1.13
+description: Choose your faction - Sun-Seeker or Night-Stalker - and survive in your preferred light conditions.
+
+commands:
+  dnf:
+    description: DayNightFactions admin command.
+    usage: /dnf <changefaction|reset|reload>
+    permission: daynightfactions.admin
+
+permissions:
+  daynightfactions.admin:
+    description: Access to all /dnf admin commands.
+    default: op
