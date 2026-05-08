@@ -18,6 +18,9 @@ public class ConfigManager {
     @Getter private List<String> sunSeekerEffects;
     @Getter private List<String> nightStalkerEffects;
 
+    @Getter private boolean disableBeds;
+    @Getter private int gracePeriodSeconds;
+
     public ConfigManager(DayNightPlugin plugin) {
         this.plugin = plugin;
         this.plugin.saveDefaultConfig();
@@ -39,6 +42,8 @@ public class ConfigManager {
         if (this.nightStalkerEffects.isEmpty()) {
             this.nightStalkerEffects = Arrays.asList("GLOWING:1", "WEAKNESS:1");
         }
+        this.disableBeds = this.plugin.getConfig().getBoolean("disable-beds", true);
+        this.gracePeriodSeconds = this.plugin.getConfig().getInt("grace-period", 30);
     }
 
     public void reload() {

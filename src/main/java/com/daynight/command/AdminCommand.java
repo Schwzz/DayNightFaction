@@ -48,6 +48,12 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             case "reload":
                 handleReload(sender);
                 break;
+            case "off":
+                handleExempt(sender, args, true);
+                break;
+            case "on":
+                handleExempt(sender, args, false);
+                break;
             default:
                 sendHelp(sender);
                 break;
@@ -125,11 +131,38 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(PREFIX + ChatColor.GREEN + "Configuration reloaded successfully.");
     }
 
+    private void handleExempt(CommandSender sender, String[] args, boolean exempt) {
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + ChatColor.RED + "Usage: /dnf " + args[0].toLowerCase() + " <player>");
+            return;
+        }
+        Player target = Bukkit.getPlayer(args[1]);
+        if (target == null) {
+            sender.sendMessage(PREFIX + ChatColor.RED + "Player '" + args[1] + "' is not online.");
+            return;
+        }
+        if (exempt) {
+            this.plugin.getFactionManager().exempt(target.getUniqueId());
+            this.plugin.getGameTask().resetScale(target.getUniqueId());
+            for (org.bukkit.potion.PotionEffect effect : target.getActivePotionEffects()) {
+                target.removePotionEffect(effect.getType());
+            }
+            sender.sendMessage(PREFIX + ChatColor.GREEN + target.getName() + " is now exempt from all faction mechanics.");
+            target.sendMessage(PREFIX + ChatColor.GRAY + "You have been exempted from faction mechanics by an admin.");
+        } else {
+            this.plugin.getFactionManager().unexempt(target.getUniqueId());
+            sender.sendMessage(PREFIX + ChatColor.GREEN + target.getName() + "'s faction mechanics have been re-enabled.");
+            target.sendMessage(PREFIX + ChatColor.YELLOW + "Your faction mechanics have been re-enabled by an admin.");
+        }
+    }
+
     private void sendHelp(CommandSender sender) {
         sender.sendMessage(ChatColor.GOLD + "--- DayNightFactions Admin Commands ---");
         sender.sendMessage(ChatColor.YELLOW + "/dnf changefaction <player> <sun/night>" + ChatColor.GRAY + " - Set a player's faction.");
         sender.sendMessage(ChatColor.YELLOW + "/dnf reset <player>" + ChatColor.GRAY + " - Reset a player's faction choice.");
         sender.sendMessage(ChatColor.YELLOW + "/dnf reload" + ChatColor.GRAY + " - Reload the config.yml.");
+        sender.sendMessage(ChatColor.YELLOW + "/dnf off <player>" + ChatColor.GRAY + " - Exempt a player from all faction mechanics.");
+        sender.sendMessage(ChatColor.YELLOW + "/dnf on <player>" + ChatColor.GRAY + " - Re-enable faction mechanics for a player.");
     }
 
     @Override
@@ -137,12 +170,13 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         if (!sender.hasPermission(PERM)) return Collections.emptyList();
 
         if (args.length == 1) {
-            return Arrays.asList("changefaction", "reset", "reload").stream()
+            return Arrays.asList("changefaction", "reset", "reload", "off", "on").stream()
                     .filter(s -> s.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }
 
-        if (args.length == 2 && (args[0].equalsIgnoreCase("changefaction") || args[0].equalsIgnoreCase("reset"))) {
+        if (args.length == 2 && (args[0].equalsIgnoreCase("changefaction") || args[0].equalsIgnoreCase("reset")
+                || args[0].equalsIgnoreCase("off") || args[0].equalsIgnoreCase("on"))) {
             return Bukkit.getOnlinePlayers().stream()
                     .map(Player::getName)
                     .filter(n -> n.toLowerCase().startsWith(args[1].toLowerCase()))

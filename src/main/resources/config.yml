@@ -5,6 +5,9 @@ damage:
 
 light-threshold: 8
 
+disable-beds: true
+grace-period: 300
+
 effects:
   delay-ticks: 200
   sun-seeker:

@@ -5,6 +5,7 @@ import com.daynight.config.ConfigManager;
 import com.daynight.faction.FactionManager;
 import com.daynight.inventory.gui.GUIListener;
 import com.daynight.inventory.gui.GUIManager;
+import com.daynight.listener.BedListener;
 import com.daynight.listener.JoinListener;
 import com.daynight.task.GameTask;
 import lombok.Getter;
@@ -24,6 +25,7 @@ public class DayNightPlugin extends JavaPlugin {
 
         this.getServer().getPluginManager().registerEvents(new GUIListener(this.guiManager), this);
         this.getServer().getPluginManager().registerEvents(new JoinListener(this), this);
+        this.getServer().getPluginManager().registerEvents(new BedListener(this), this);
 
         AdminCommand adminCommand = new AdminCommand(this);
         this.getCommand("dnf").setExecutor(adminCommand);

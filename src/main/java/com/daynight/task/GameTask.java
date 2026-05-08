@@ -22,6 +22,7 @@ public class GameTask extends BukkitRunnable {
     private final DayNightPlugin plugin;
     private final Map<UUID, Integer> dangerSeconds = new HashMap<>();
     private final Map<UUID, Double> dangerScale = new HashMap<>();
+    private final Map<UUID, Integer> graceSeconds = new HashMap<>();
 
     public GameTask(DayNightPlugin plugin) {
         this.plugin = plugin;
@@ -35,6 +36,25 @@ public class GameTask extends BukkitRunnable {
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             UUID uuid = player.getUniqueId();
+
+            if (this.plugin.getFactionManager().isExempted(uuid)) {
+                continue;
+            }
+
+            if (graceSeconds.containsKey(uuid)) {
+                int remaining = graceSeconds.get(uuid) - 1;
+                if (remaining <= 0) {
+                    graceSeconds.remove(uuid);
+                    player.spigot().sendMessage(ChatMessageType.ACTION_BAR,
+                            TextComponent.fromLegacyText(ChatColor.GREEN + "✔ Grace period ended. Good luck!"));
+                } else {
+                    graceSeconds.put(uuid, remaining);
+                    player.spigot().sendMessage(ChatMessageType.ACTION_BAR,
+                            TextComponent.fromLegacyText(ChatColor.AQUA + "⏳ Grace period: " + ChatColor.WHITE + remaining + "s"));
+                }
+                continue;
+            }
+
             if (!this.plugin.getFactionManager().hasFaction(uuid)) {
                 continue;
             }
@@ -80,6 +100,12 @@ public class GameTask extends BukkitRunnable {
     public void resetScale(UUID uuid) {
         dangerSeconds.remove(uuid);
         dangerScale.remove(uuid);
+    }
+
+    public void startGracePeriod(UUID uuid) {
+        dangerSeconds.remove(uuid);
+        dangerScale.remove(uuid);
+        graceSeconds.put(uuid, this.plugin.getConfigManager().getGracePeriodSeconds());
     }
 
     private void applyEffects(Player player, List<String> effectDefinitions, int durationSeconds) {

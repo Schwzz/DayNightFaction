@@ -15,6 +15,9 @@ public class JoinListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
+        if (this.plugin.getFactionManager().isExempted(event.getPlayer().getUniqueId())) {
+            return;
+        }
         if (!this.plugin.getFactionManager().hasFaction(event.getPlayer().getUniqueId())) {
             this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
                 ChoiceGUI gui = new ChoiceGUI(this.plugin);

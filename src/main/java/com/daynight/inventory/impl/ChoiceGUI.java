@@ -59,6 +59,7 @@ public class ChoiceGUI extends InventoryGUI {
                     Player clicker = (Player) event.getWhoClicked();
                     this.plugin.getFactionManager().setFaction(clicker.getUniqueId(), Faction.SUN_SEEKER);
                     clicker.closeInventory();
+                    this.plugin.getGameTask().startGracePeriod(clicker.getUniqueId());
                     clicker.sendMessage(ChatColor.YELLOW + "☀ You have joined the " + ChatColor.BOLD + "Sun-Seekers" + ChatColor.RESET + ChatColor.YELLOW + "! Stay in the light!");
                 })
         );
@@ -82,6 +83,7 @@ public class ChoiceGUI extends InventoryGUI {
                     Player clicker = (Player) event.getWhoClicked();
                     this.plugin.getFactionManager().setFaction(clicker.getUniqueId(), Faction.NIGHT_STALKER);
                     clicker.closeInventory();
+                    this.plugin.getGameTask().startGracePeriod(clicker.getUniqueId());
                     clicker.sendMessage(ChatColor.DARK_PURPLE + "🌙 You have joined the " + ChatColor.BOLD + "Night-Stalkers" + ChatColor.RESET + ChatColor.DARK_PURPLE + "! Embrace the dark!");
                 })
         );
