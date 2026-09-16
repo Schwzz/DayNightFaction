@@ -1,6 +1,7 @@
 package com.daynight.task;
 
 import com.cryptomorin.xseries.XPotion;
+import com.cryptomorin.xseries.XSound;
 import com.daynight.DayNightPlugin;
 import com.daynight.config.ConfigManager;
 import com.daynight.faction.Faction;
@@ -22,6 +23,7 @@ public class GameTask extends BukkitRunnable {
     private final DayNightPlugin plugin;
     private final Map<UUID, Integer> dangerSeconds = new HashMap<>();
     private final Map<UUID, Double> dangerScale = new HashMap<>();
+    private final Map<UUID, Integer> safeSeconds = new HashMap<>();
     private final Map<UUID, Integer> graceSeconds = new HashMap<>();
 
     public GameTask(DayNightPlugin plugin) {
@@ -32,6 +34,7 @@ public class GameTask extends BukkitRunnable {
     public void run() {
         ConfigManager cfg = this.plugin.getConfigManager();
         int intervalSeconds = cfg.getDamageIntervalTicks() / 20;
+        int recoveryIntervalSeconds = cfg.getSafeZoneRecoveryIntervalTicks() / 20;
         int effectDelaySeconds = cfg.getEffectsDelayTicks() / 20;
 
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -67,12 +70,22 @@ public class GameTask extends BukkitRunnable {
                     || (faction == Faction.NIGHT_STALKER && lightLevel >= threshold);
 
             if (inDanger) {
+                safeSeconds.remove(uuid);
                 int seconds = dangerSeconds.merge(uuid, 1, Integer::sum);
-                double currentDamage = dangerScale.getOrDefault(uuid, cfg.getDamageBase());
+                double currentDamage = Math.min(dangerScale.getOrDefault(uuid, cfg.getDamageBase()), cfg.getDamageMax());
+
+                if (seconds == 1) {
+                    player.sendMessage(ChatColor.RED + "⚠ You have entered a dangerous "
+                            + (faction == Faction.SUN_SEEKER ? "dark" : "bright") + " area!");
+                    playSound(player, cfg.getDangerSound());
+                } else if (cfg.getDangerEscalationSeconds().contains(seconds)) {
+                    player.sendMessage(ChatColor.DARK_RED + "⚠ Danger is escalating! Escape now.");
+                    playSound(player, cfg.getDangerSound());
+                }
 
                 if (seconds % intervalSeconds == 0) {
                     player.damage(currentDamage * 2.0);
-                    dangerScale.put(uuid, currentDamage + cfg.getDamageIncrement());
+                    dangerScale.put(uuid, Math.min(currentDamage + cfg.getDamageIncrement(), cfg.getDamageMax()));
                 }
 
                 if (seconds == effectDelaySeconds) {
@@ -87,8 +100,21 @@ public class GameTask extends BukkitRunnable {
                     applyEffects(player, effects, intervalSeconds);
                 }
             } else {
+                boolean wasInDanger = dangerSeconds.containsKey(uuid);
                 dangerSeconds.remove(uuid);
                 dangerScale.remove(uuid);
+                int seconds = safeSeconds.merge(uuid, 1, Integer::sum);
+                if (wasInDanger) {
+                    player.sendMessage(ChatColor.GREEN + "✔ You have reached safety.");
+                    playSound(player, cfg.getSafetySound());
+                }
+                if (cfg.getSafeZoneRecovery() > 0.0 && seconds % recoveryIntervalSeconds == 0 && !player.isDead()) {
+                    player.setHealth(Math.min(player.getHealth() + cfg.getSafeZoneRecovery(), player.getMaxHealth()));
+                }
+                List<String> passives = faction == Faction.SUN_SEEKER
+                        ? cfg.getSunSeekerPassives()
+                        : cfg.getNightStalkerPassives();
+                applyEffects(player, passives, 2);
             }
 
             String hud = buildHUD(faction, lightLevel, threshold,
@@ -100,12 +126,31 @@ public class GameTask extends BukkitRunnable {
     public void resetScale(UUID uuid) {
         dangerSeconds.remove(uuid);
         dangerScale.remove(uuid);
+        safeSeconds.remove(uuid);
     }
 
     public void startGracePeriod(UUID uuid) {
-        dangerSeconds.remove(uuid);
-        dangerScale.remove(uuid);
+        resetScale(uuid);
         graceSeconds.put(uuid, this.plugin.getConfigManager().getGracePeriodSeconds());
+    }
+
+    public int getGraceSeconds(UUID uuid) {
+        return graceSeconds.getOrDefault(uuid, 0);
+    }
+
+    public int getDangerSeconds(UUID uuid) {
+        return dangerSeconds.getOrDefault(uuid, 0);
+    }
+
+    public boolean isInDanger(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (this.plugin.getFactionManager().isExempted(uuid) || !this.plugin.getFactionManager().hasFaction(uuid)) {
+            return false;
+        }
+        Faction faction = this.plugin.getFactionManager().getFaction(uuid);
+        int lightLevel = player.getLocation().getBlock().getLightLevel();
+        return (faction == Faction.SUN_SEEKER && lightLevel < this.plugin.getConfigManager().getLightThreshold())
+                || (faction == Faction.NIGHT_STALKER && lightLevel >= this.plugin.getConfigManager().getLightThreshold());
     }
 
     private void applyEffects(Player player, List<String> effectDefinitions, int durationSeconds) {
@@ -152,5 +197,9 @@ public class GameTask extends BukkitRunnable {
         } catch (NumberFormatException e) {
             return def;
         }
+    }
+
+    private void playSound(Player player, String soundName) {
+        XSound.matchXSound(soundName).ifPresent(sound -> sound.play(player));
     }
 }

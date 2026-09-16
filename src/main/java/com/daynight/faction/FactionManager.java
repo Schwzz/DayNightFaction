@@ -7,15 +7,13 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 public class FactionManager {
     private final DayNightPlugin plugin;
     private final Map<UUID, Faction> factionMap = new HashMap<>();
-    private final Set<UUID> exemptedPlayers = new HashSet<>();
+    private final Map<UUID, Long> exemptedPlayers = new HashMap<>();
     private File dataFile;
     private FileConfiguration dataConfig;
 
@@ -47,10 +45,19 @@ public class FactionManager {
             }
         }
         if (this.dataConfig.contains("exempted")) {
-            for (String key : this.dataConfig.getStringList("exempted")) {
-                try {
-                    this.exemptedPlayers.add(UUID.fromString(key));
-                } catch (Exception ignored) {
+            if (this.dataConfig.isList("exempted")) {
+                for (String key : this.dataConfig.getStringList("exempted")) {
+                    try {
+                        this.exemptedPlayers.put(UUID.fromString(key), 0L);
+                    } catch (Exception ignored) {
+                    }
+                }
+            } else if (this.dataConfig.isConfigurationSection("exempted")) {
+                for (String key : this.dataConfig.getConfigurationSection("exempted").getKeys(false)) {
+                    try {
+                        this.exemptedPlayers.put(UUID.fromString(key), this.dataConfig.getLong("exempted." + key, 0L));
+                    } catch (Exception ignored) {
+                    }
                 }
             }
         }
@@ -60,9 +67,10 @@ public class FactionManager {
         this.factionMap.forEach((uuid, faction) ->
                 this.dataConfig.set("factions." + uuid.toString(), faction.name())
         );
-        this.dataConfig.set("exempted", this.exemptedPlayers.stream()
-                .map(UUID::toString)
-                .collect(java.util.stream.Collectors.toList()));
+        this.dataConfig.set("exempted", null);
+        this.exemptedPlayers.forEach((uuid, expiresAt) ->
+                this.dataConfig.set("exempted." + uuid.toString(), expiresAt)
+        );
         try {
             this.dataConfig.save(this.dataFile);
         } catch (IOException e) {
@@ -90,7 +98,11 @@ public class FactionManager {
     }
 
     public void exempt(UUID uuid) {
-        this.exemptedPlayers.add(uuid);
+        exempt(uuid, 0L);
+    }
+
+    public void exempt(UUID uuid, long durationMillis) {
+        this.exemptedPlayers.put(uuid, durationMillis > 0L ? System.currentTimeMillis() + durationMillis : 0L);
         this.saveData();
     }
 
@@ -100,6 +112,23 @@ public class FactionManager {
     }
 
     public boolean isExempted(UUID uuid) {
-        return this.exemptedPlayers.contains(uuid);
+        Long expiresAt = this.exemptedPlayers.get(uuid);
+        if (expiresAt == null) {
+            return false;
+        }
+        if (expiresAt > 0L && expiresAt <= System.currentTimeMillis()) {
+            this.exemptedPlayers.remove(uuid);
+            this.saveData();
+            return false;
+        }
+        return true;
+    }
+
+    public long getExemptionRemainingMillis(UUID uuid) {
+        if (!isExempted(uuid)) {
+            return 0L;
+        }
+        long expiresAt = this.exemptedPlayers.get(uuid);
+        return expiresAt == 0L ? -1L : Math.max(0L, expiresAt - System.currentTimeMillis());
     }
 }
